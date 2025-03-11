@@ -2,21 +2,27 @@ package com.example.marsphotos.data
 
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.UriMatcher
 import android.database.Cursor
 import android.net.Uri
 import com.example.marsphotos.network.DatabaseProvider
 
-class rateContentProvaider : ContentProvider(){
-    companion object {
-        const val AUTHORITY = "com.example.marsphotos.provider"
-        val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/exchange_rate")
-    }
+private const val AUTHORITY = "com.example.marsphotos.provider"
+private const val CURRENCIES_CODE = 1
+private const val TARGET_CURRENCIES_CODE = 2
+private const val EXCHANGE_RATE_CODE = 3
 
-    private lateinit var exchangeRateDao: DaoApiRate
+private val sUriMatcher = UriMatcher(UriMatcher.NO_MATCH).apply {
+    addURI(AUTHORITY, "currencies", CURRENCIES_CODE)
+    addURI(AUTHORITY, "target_currencies", TARGET_CURRENCIES_CODE)
+    addURI(AUTHORITY, "exchange_rate", EXCHANGE_RATE_CODE)
+}
+
+class rateContentProvider : ContentProvider() {
+    private lateinit var database: DaoApiRate.ExchangeRateDatabase
 
     override fun onCreate(): Boolean {
-        val database = DatabaseProvider.getDatabase(context!!)
-        exchangeRateDao = database.exchangeRateDao()
+        database = DatabaseProvider.getDatabase(context!!)
         return true
     }
 
@@ -27,33 +33,37 @@ class rateContentProvaider : ContentProvider(){
         selectionArgs: Array<out String>?,
         sortOrder: String?
     ): Cursor? {
-        val baseCode = uri.getQueryParameter("baseCode") ?: return null
-        val startDate = uri.getQueryParameter("startDate")?.toLongOrNull() ?: return null
-        val endDate = uri.getQueryParameter("endDate")?.toLongOrNull() ?: return null
+        return when (sUriMatcher.match(uri)) {
+            CURRENCIES_CODE -> database.exchangeRateDao().getDistinctCurrencies()
+            TARGET_CURRENCIES_CODE -> database.exchangeRateDao().getDistinctTargetCurrencies()
+            EXCHANGE_RATE_CODE -> {
+                val baseCode = uri.getQueryParameter("baseCode")
+                val targetCode = uri.getQueryParameter("targetCode")
+                val startDate = uri.getQueryParameter("startDate")?.toLongOrNull()
+                val endDate = uri.getQueryParameter("endDate")?.toLongOrNull()
 
-        val cursor = exchangeRateDao.getRates(baseCode, "MXN", startDate, endDate)
-        cursor.setNotificationUri(context?.contentResolver, uri)
-        return cursor
-    }
+                if (baseCode == null || targetCode == null || startDate == null || endDate == null) {
+                    return null
+                }
 
-    override fun insert(uri: Uri, values: ContentValues?): Uri? {
-        return null
-    }
-
-    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
-        return 0
-    }
-
-    override fun update(
-        uri: Uri,
-        values: ContentValues?,
-        selection: String?,
-        selectionArgs: Array<out String>?
-    ): Int {
-        return 0
+                database.exchangeRateDao().getRates(baseCode, targetCode, startDate, endDate)
+            }
+            else -> null
+        }
     }
 
     override fun getType(uri: Uri): String? {
-        return "vnd.android.cursor.dir/$AUTHORITY.exchange_rate"
+        return when (sUriMatcher.match(uri)) {
+            CURRENCIES_CODE -> "vnd.android.cursor.dir/vnd.$AUTHORITY.currencies"
+            TARGET_CURRENCIES_CODE -> "vnd.android.cursor.dir/vnd.$AUTHORITY.target_currencies"
+            EXCHANGE_RATE_CODE -> "vnd.android.cursor.dir/vnd.$AUTHORITY.exchange_rate"
+            else -> null
+        }
     }
+
+    override fun insert(uri: Uri, values: ContentValues?): Uri? = null
+
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
+
+    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
 }

@@ -2,16 +2,16 @@ package com.example.marsphotos.network
 
 import android.content.Context
 import androidx.room.Room
-import com.example.marsphotos.data.ExchangeRateDatabase
+import com.example.marsphotos.data.DaoApiRate
 
 object DatabaseProvider {
-    private var database: ExchangeRateDatabase? = null
+    private var database: DaoApiRate.ExchangeRateDatabase? = null
 
-    fun getDatabase(context: Context): ExchangeRateDatabase {
+    fun getDatabase(context: Context): DaoApiRate.ExchangeRateDatabase {
         return database ?: synchronized(this) {
             val instance = Room.databaseBuilder(
                 context.applicationContext,
-                ExchangeRateDatabase::class.java,
+                DaoApiRate.ExchangeRateDatabase::class.java,
                 "exchange_rate_database"
             ).build()
             database = instance
