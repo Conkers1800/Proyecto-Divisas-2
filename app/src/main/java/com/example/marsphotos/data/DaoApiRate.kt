@@ -1,5 +1,6 @@
 package com.example.marsphotos.data
 
+import android.database.Cursor
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Insert
@@ -14,10 +15,15 @@ interface DaoApiRate {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(exchangeRate: ApiRate)
 
-    @Query("SELECT * FROM exchange_rate " +
-            "WHERE baseCode = :baseCode AND targetCode = :targetCode " +
-            "ORDER BY timestamp DESC")
-    suspend fun getRates(baseCode: String, targetCode: String): List<ApiRate>
+    @Query(
+        "SELECT * FROM exchange_rate " +
+                "WHERE baseCode = :baseCode AND targetCode = :targetCode " +
+                "AND timestamp BETWEEN :startDate AND :endDate " +
+                "ORDER BY timestamp ASC")
+    fun getRates(baseCode: String,
+                 targetCode: String,
+                 startDate: Long,
+                 endDate: Long): Cursor
 }
 
 @Database(entities = [ApiRate::class], version = 1, exportSchema = false)
